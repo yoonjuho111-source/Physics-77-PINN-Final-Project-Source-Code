@@ -12,12 +12,12 @@ import glob
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on:", device)
 
-# 1. LOAD MASK
+#mask loaded
 mask = loadmat("conductor_data.mat")["mask_crop"].astype(np.float32)
 H, W = mask.shape
 inside = (mask == 1)
 
-# 2. DATASET CLASS
+# classes of the datasets
 class SyntheticEITDataset(Dataset):
     def __init__(self, file_list):
         self.files = file_list
@@ -38,21 +38,20 @@ class SyntheticEITDataset(Dataset):
         U = np.nan_to_num(U, nan=np.nanmean(U[inside]))
         sigma = np.nan_to_num(sigma, nan=np.nanmean(sigma[inside]))
 
-        # Normalize U inside conductor
+        # Normalize U inside conductor region excluding graphite areas
         mean = U[inside].mean()
         std = U[inside].std() + 1e-8
         U_norm = (U - mean) / std
 
-        # Convert to tensors (1×1×H×W)
+        # Convert to tensors 
         return (
-            torch.tensor(U_norm).unsqueeze(0),     # input voltage
+            torch.tensor(U_norm).unsqueeze(0),    # input voltage
             torch.tensor(sigma).unsqueeze(0),      # target conductivity
-            torch.tensor(mask).unsqueeze(0)        # mask
+            torch.tensor(mask).unsqueeze(0)         # mask
         )
 
 
-# 3. BUILD TRAINING SET
-
+# training set build
 files = sorted(glob.glob("U_sim_*.mat"))
 
 # keep only those ending in a number: U_sim_0.mat, U_sim_1.mat, ...
@@ -69,7 +68,7 @@ loader = DataLoader(dataset, batch_size=2, shuffle=True)
 
 print(f"Found {len(dataset)} synthetic samples.")
 
-# 4. CNN ARCHITECTURE
+# 4. actual CNN architecture
 class CNN_Inverse(nn.Module):
     def __init__(self):
         super().__init__()
@@ -139,8 +138,7 @@ plt.tight_layout()
 plt.show()
 
 
-# ------------------------------------------------------------
 # 7. SAVE TRAINED MODEL
-# ------------------------------------------------------------
+
 torch.save(model.state_dict(), "cnn_multisample.pt")
 print("Saved cnn_multisample.pt")
